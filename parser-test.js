@@ -1,7 +1,16 @@
 var parser = require('./parser');
+var assert = require('assert');
+var Var = parser.Var,
+    FinalVar = parser.FinalVar,
+    Parser = parser.Parser,
+    Rule = parser.Rule,
+    RuleItem = parser.RuleItem,
+    TokenList = parser.TokenList,
+    Token = parser.Token;
 
 
 function testRegexEngine() {
+    console.log('-----start test regex engine-----');
     var a = new parser.CharExpr('a');
     var b = new parser.CharExpr('b');
     var c = new parser.CharExpr('c');
@@ -23,28 +32,30 @@ function testRegexEngine() {
     expr3.build();
     expr2.build();
     expr.build();
-    console.log(expr);
-    console.log(expr4);
+    console.log(expr.toString());
+    console.log(expr4.toString());
     var r1 = expr.match("aaaacb345dddd");
     console.log(r1.toString());
-    console.log(r1.equals(parser.MatchResult.of(false, "aaaacb345")));
+    assert.equal(true, r1.equals(parser.MatchResult.of(false, "aaaacb345")));
     var r2 = expr4.match("bb");
     console.log(r2.toString());
-    console.log(r2.equals(parser.MatchResult.of(true, "bb")));
+    assert.equal(true, r2.equals(parser.MatchResult.of(true, "bb")));
     var r3 = expr3.match("aaabcb");
     console.log(r3.toString());
-    console.log(r3.equals(parser.MatchResult.of(true, "aaabcb")));
+    assert.equal(true, r3.equals(parser.MatchResult.of(true, "aaabcb")));
     var r4 = expr2.match("aaabcbc123");
     console.log(r4.toString());
-    console.log(r4.equals(parser.MatchResult.of(false, "aaabcbc")));
+    assert.equal(true, r4.equals(parser.MatchResult.of(false, "aaabcbc")));
     var r5 = expr5.match("zoOwIi1992@NJU");
     console.log(r5.toString());
-    console.log(r5.equals(parser.MatchResult.of(false, "zoOwIi1992")));
+    assert.equal(true, r5.equals(parser.MatchResult.of(false, "zoOwIi1992")));
     var r6 = iden.union(ops).matchAll("def fib(n) n = n + 1 end");
     console.log(r6.toString());
-    console.log(r6.count() === 8);
+    assert.equal(r6.count(), 8);
+    console.log('-----end test regex engine-----');
 }
 function testSimpleGroup() {
+    console.log('-----test simple group-----');
     var a = new parser.EmptyExpr().concat(new parser.CharExpr('a')).concat(new parser.EmptyExpr());
     a.markGroup("a");
     var b = new parser.EmptyExpr().concat(new parser.CharExpr('b')).concat(new parser.EmptyExpr());
@@ -56,6 +67,44 @@ function testSimpleGroup() {
     var str = "abcdaebf";
     var res = expr.matchAll(str);
     console.log(res);
+    console.log('-----end test simple group-----');
 }
 testRegexEngine();
 testSimpleGroup();
+
+function testSimpleParser() {
+    console.log('-----test simple parser-----');
+    // a + b * c, symbol, +, *
+    // E => E * E | E + E | (E) | I, I => symbol
+    var EVar = new Var("E");
+    var iVar = new Var("I");
+    var mulVar = new FinalVar("*");
+    var addVar = new FinalVar("+");
+    var leftVar = new FinalVar("(");
+    var rightVar = new FinalVar(")");
+    var symbolVar = new FinalVar("Symbol");
+    var rule1 = new Rule(EVar, [
+        new RuleItem([leftVar, EVar, rightVar]),
+        new RuleItem([iVar]),
+        new RuleItem([EVar, mulVar, EVar]),
+        new RuleItem([EVar, addVar, EVar])
+    ]);
+    var rule2 = new Rule(iVar, [
+        new RuleItem([symbolVar])
+    ]);
+    var myparser = new Parser(EVar, [rule1, rule2], [EVar, iVar, mulVar, addVar, leftVar, rightVar, symbolVar]);
+    var tokens = TokenList.create(
+        new Token('a', symbolVar),
+        new Token('+', addVar),
+        new Token('(', leftVar),
+        new Token('b', symbolVar),
+        new Token('*', mulVar),
+        new Token('c', symbolVar),
+        new Token(')', rightVar)
+    );
+    var syntaxTree = myparser.parse(tokens);
+    console.log(syntaxTree.toString());
+    assert.equal(syntaxTree.toString(), "a + ( b * c )");
+    console.log('-----end test simple parser-----');
+}
+testSimpleParser();

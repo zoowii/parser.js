@@ -11,24 +11,71 @@
             return false;
         };
     }
-    if (Array.prototype.join === undefined) {
-        Array.prototype.join = function (sep) {
-            sep = sep || '';
-            var result = '';
-            for (var i = 0; i < this.length; ++i) {
-                if (i < 1) {
-                    result += sep;
-                }
-                if (this[i] !== null && this[i] !== undefined) {
-                    result += this[i].toString();
-                }
+    //if (Array.prototype.join === undefined) {
+    Array.prototype.join = function (sep) {
+        sep = sep || '';
+        var result = '';
+        for (var i = 0; i < this.length; ++i) {
+            if (i > 0) {
+                result += sep;
             }
-            return result;
+            if (this[i] !== null && this[i] !== undefined) {
+                result += this[i].toString();
+            }
         }
-    }
+        return result;
+    };
+    //}
     if (Array.prototype.clear === undefined) {
         Array.prototype.clear = function () {
             this.length = 0;
+        };
+    }
+    if (Array.prototype.size === undefined) {
+        Array.prototype.size = function () {
+            return this.length;
+        };
+    }
+    if (Array.prototype.get === undefined) {
+        Array.prototype.get = function (index) {
+            return this[index];
+        };
+    }
+    if (Array.prototype.remove === undefined) {
+        Array.prototype.remove = function (item) {
+            var index = this.indexOf(item);
+            if (index >= 0) {
+                this.removeAt(index);
+            }
+            return this;
+        };
+    }
+    if (Array.prototype.removeAt === undefined) {
+        Array.prototype.removeAt = function (index) {
+            if (index >= 0 && index < this.length) {
+                var item = this[index];
+                this.splice(index, 1);
+                return item;
+            } else {
+                return undefined;
+            }
+        };
+    }
+    if (Array.prototype.insertAt === undefined) {
+        Array.prototype.insertAt = function (index, item) {
+            if (index >= this.length) {
+                this.push(item);
+            } else {
+                this.splice(index, 1, item, this[index]);
+            }
+        };
+    }
+    if (Array.prototype.addAll === undefined) {
+        Array.prototype.addAll = function (items) {
+            for (var i = 0; i < items.length; ++i) {
+                this.push(items[i]);
+            }
+            return this;
         };
     }
     var __extends = function (child, parent) {
@@ -100,7 +147,7 @@
     }
 
     MatchResult.prototype.toString = function () {
-        return '[MatchResult: Matched=' + this.matched + ', LastMatchedString=' + this.lastMatchedString + ', EndState=' + (this.endState?this.endState.toString():'') + ']';
+        return '[MatchResult: Matched=' + this.matched + ', LastMatchedString=' + this.lastMatchedString + ', EndState=' + (this.endState ? this.endState.toString() : '') + ']';
     };
     MatchResult.prototype.equals = function (obj) {
         if (this === obj) {
@@ -130,7 +177,7 @@
         this.items = [];
     }
 
-    Set.prototype.get = function(index) {
+    Set.prototype.get = function (index) {
         return this.items[index];
     };
 
@@ -855,4 +902,736 @@
         return new EmptyExpr();
     };
     exports.EmptyExpr = EmptyExpr;
+
+    // parser engine
+    function Var(name) {
+        this.name = name;
+        this.isMiddleVar = false;
+        this.isNotLeftVar = false;
+        this.originVar = null;
+        this.minCount = 1;
+    }
+
+    Var.prototype.toString = function () {
+        return this.name;
+    };
+    exports.Var = Var;
+    function FinalVar(name) {
+        this.name = name;
+        this.isMiddleVar = false;
+        this.isNotLeftVar = false;
+        this.originVar = null;
+        this.minCount = 1;
+    }
+
+    FinalVar.prototype.toString = function () {
+        return this.name;
+    };
+    exports.FinalVar = FinalVar;
+    function EmptyVar() {
+        FinalVar.call(this, '');
+        this.minCount = 0;
+    }
+
+    __extends(EmptyVar, FinalVar);
+    EmptyVar.instance = new EmptyVar();
+    exports.EmptyVar = EmptyVar;
+
+    function Token(text, tokenType) {
+        this.text = text;
+        this.tokenType = tokenType;
+    }
+
+    Token.prototype.toString = function () {
+        return this.text;
+    };
+    Token.empty = new Token('', EmptyVar.instance);
+    exports.Token = Token;
+    function CList(head, tail) {
+        this.head = head;
+        this.tail = tail;
+        this._constructor = CList;
+    }
+
+    CList.prototype.lastNode = function () {
+        var result = this;
+        while (result.tail != null) {
+            result = result.tail;
+        }
+        return result;
+    };
+    CList.prototype.hasNext = function () {
+        return this.tail !== null && this.tail !== undefined;
+    };
+    CList.prototype.cons = function (item) {
+        return new this._constructor(item, this);
+    };
+    CList.prototype.append = function (item) {
+        var result = this.cloneNew();
+        result.lastNode().tail = new this._constructor(item, null);
+        return result;
+    };
+    CList.prototype.push = CList.prototype.append;
+    CList.prototype.cloneNew = function () {
+        return new this._constructor(this.head, this.tail != null ? this.tail.cloneNew() : null);
+    };
+    CList.prototype.count = function () {
+        var cur = this;
+        var sum = 1;
+        while (cur.tail != null) {
+            sum += 1;
+            cur = cur.tail;
+        }
+        return sum;
+    };
+    CList.prototype.size = CList.prototype.count;
+    CList.prototype.get = function (index) {
+        var count = this.size();
+        if (index < 0 || index >= count) {
+            throw new RangeError();
+        }
+        var cur = this;
+        var pos = 0;
+        while (pos < index) {
+            pos += 1;
+            cur = cur.tail;
+        }
+        return cur.head;
+    };
+    CList.prototype.forEach = function (action) {
+        var cur = this;
+        do
+        {
+            action(cur.head);
+            cur = cur.tail;
+        } while (cur != null);
+    };
+    CList.prototype.toString = function () {
+        var builder = '';
+        this.forEach(function (item) {
+            builder += item.toString();
+        });
+        return builder;
+    };
+    exports.CList = CList;
+    function TokenList(head, tail) {
+        CList.call(this, head, tail);
+        this._constructor = TokenList;
+    }
+
+    __extends(TokenList, CList);
+    TokenList.prototype.addTokenToHead = function (item) {
+        return this.cons(item);
+    };
+    TokenList.createFromList = function (tokens) {
+        if (tokens.length < 1) {
+            return null;
+        }
+        var pos = tokens.length - 1;
+        var result = new this._constructor(tokens[pos], null);
+        while (pos > 0) {
+            pos -= 1;
+            result = result.addTokenToHead(tokens[pos]);
+        }
+        return result;
+    };
+    TokenList.create = function () {
+        if (arguments.length > 0 && Array.isArray(arguments[0])) {
+            return TokenList.createFromList(arguments[0]);
+        }
+        var tokens = arguments;
+        if (tokens.length < 1) {
+            return null;
+        }
+        var pos = tokens.length - 1;
+        var result = new TokenList(tokens[pos], null);
+        while (pos > 0) {
+            pos -= 1;
+            result = result.addTokenToHead(tokens[pos]);
+        }
+        return result;
+    };
+    exports.TokenList = TokenList;
+
+    function MatchRule() {
+        this.items = [];
+    }
+
+    exports.MatchRule = MatchRule;
+    function RuleItem(items, extraInfo) {
+        this.items = items || [];
+        this.extraInfo = extraInfo || null;
+    }
+
+    RuleItem.prototype.subItems = function (start, end) {
+        if (end === undefined) {
+            end = 0;
+        }
+        if (start === undefined) {
+            start = 0;
+        }
+        if (end == 0) {
+            end = this.items.size();
+        }
+        var result = [];
+        for (var i = start; i < end; ++i) {
+            if (i >= 0 && i < this.items.size()) {
+                result.push(this.items[i]);
+            }
+        }
+        return result;
+    };
+    RuleItem.prototype.toString = function () {
+        var builder = '';
+        for (var i = 0; i < this.items.size(); ++i) {
+            if (i > 0) {
+                builder += " ";
+            }
+            builder += this.items[i].toString();
+        }
+        return builder.toString();
+    };
+    RuleItem.create = function () {
+        var items = arguments;
+        var result = new RuleItem();
+        for (var i = 0; i < items.length; ++i) {
+            result.items.push(items[i]);
+        }
+        return result;
+    };
+    RuleItem.prototype.extra = function (info) {
+        this.extraInfo = info;
+        return this;
+    };
+    exports.RuleItem = RuleItem;
+    function Rule(destVar, items) {
+        this.items = items || [];
+        this.destVar = destVar || null;
+    }
+
+    /**
+     * 分离出所有子产生式中的直接左递归和非直接左递归
+     *
+     * @return object pair-left是直接左递归的项,pair-right是非直接左递归的项
+     */
+    Rule.prototype.splitByLeftRecursive = function () {
+        var pair = {};
+        pair.left = [];
+        pair.right = [];
+        var destVar = this.destVar;
+        this.items.forEach(function (item) {
+            if (item.items.size() > 0 && item.items.get(0) === destVar) {
+                pair.left.push(item);
+            } else {
+                pair.right.push(item);
+            }
+        });
+        return pair;
+    };
+    Rule.prototype.toString = function () {
+        return this.destVar.toString() + ' -> ' + this.items.join(' | ');
+    };
+    exports.Rule = Rule;
+
+    function SyntaxTreeNode(nodeVar, valueToken) {
+        if (valueToken === undefined) {
+            valueToken = null;
+        }
+        if (nodeVar === undefined) {
+            nodeVar = null;
+        }
+        this.items = [];
+        this.nodeVar = nodeVar;
+        this.valueToken = valueToken;
+        this.isBound = false;
+        this.parent = null; // 指向父节点，只在要用到时被设置
+        this.extraInfo = null;
+    }
+
+    SyntaxTreeNode.prototype.markSubParents = function () {
+        if (this.items != null) {
+            var _this = this;
+            this.items.forEach(function (item) {
+                item.parent = _this;
+                item.markSubParents();
+            });
+        }
+    };
+    SyntaxTreeNode.prototype.cloneNew = function () {
+        var node = new SyntaxTreeNode(this.nodeVar, this.valueToken);
+        this.items.forEach(function (item) {
+            node.items.push(item.cloneNew());
+        });
+        node.isBound = this.isBound;
+        return node;
+    };
+    SyntaxTreeNode.prototype.toString = function () {
+        var builder = '';
+        if (this.nodeVar instanceof FinalVar && this.isBound) {
+            return this.valueToken.toString();
+        }
+        var showParent = this.items.size() < 1;
+        if (showParent) {
+            builder += this.nodeVar.toString();
+        }
+        if (this.valueToken) {
+            builder += this.valueToken.toString();
+        }
+        if (showParent) {
+            if (this.items.size() > 0) {
+                builder += "[";
+            }
+        }
+        builder += this.items.join(' ');
+        if (showParent) {
+            if (this.items.size() > 0) {
+                builder += "]";
+            }
+        }
+        return builder;
+    };
+    SyntaxTreeNode.prototype.minCount = function () {
+        if (this.nodeVar instanceof FinalVar) {
+            return this.nodeVar.minCount;
+        }
+        else {
+            var minCount = 0;
+            this.items.forEach(function (item) {
+                minCount += item.minCount();
+            });
+            return minCount;
+        }
+    };
+    exports.SyntaxTreeNode = SyntaxTreeNode;
+    function SyntaxTree() {
+        this.rootNode = null;
+    }
+
+    SyntaxTree.prototype.leftUnBoundVarOfNode = function (node) {
+        if (!node.isBound) {
+            return node;
+        }
+        for (var i = 0; i < node.items.size(); ++i) {
+            var item = node.items.get(i);
+            var res = this.leftUnBoundVarOfNode(item);
+            if (res != null) {
+                return res;
+            }
+        }
+        return null;
+    };
+    SyntaxTree.prototype.firstMiddleVarNodeUnder = function (node) {
+        if (node.nodeVar.isMiddleVar) {
+            return node;
+        }
+        for (var i = 0; i < node.items.size(); ++i) {
+            var item = node.items.get(i);
+            var res = this.firstMiddleVarNodeUnder(item);
+            if (res) {
+                return res;
+            }
+        }
+        return null;
+    };
+    /**
+     * 找到第一个父节点只包含一个子节点，且父子节点的NodeVar是同一个Var，返回这种情况下的子节点
+     */
+    SyntaxTree.prototype.firstRepeatNodeUnder = function (node) {
+        if (node.items.size() === 1 && node.nodeVar === node.items[0].nodeVar) {
+            return node.items[0];
+        }
+        for (var i = 0; i < node.items.size(); ++i) {
+            var item = node.items.get(i);
+            var res = this.firstRepeatNodeUnder(item);
+            if (res != null) {
+                return res;
+            }
+        }
+        return null;
+    };
+    SyntaxTree.prototype.firstRepeatNode = function () {
+        return this.firstRepeatNodeUnder(this.rootNode);
+    };
+    SyntaxTree.prototype.firstMiddleVarNode = function () {
+        return this.firstMiddleVarNodeUnder(this.rootNode);
+    };
+    SyntaxTree.prototype.leftUnBoundVar = function () {
+        return this.leftUnBoundVarOfNode(this.rootNode);
+    };
+    SyntaxTree.prototype.isFinished = function () {
+        return this.leftUnBoundVar() === null;
+    };
+    SyntaxTree.prototype.cloneNew = function () {
+        var other = new SyntaxTree();
+        other.rootNode = this.rootNode.cloneNew();
+        return other;
+    };
+    SyntaxTree.prototype.toString = function () {
+        return this.rootNode.toString();
+    };
+    SyntaxTree.prototype.minCount = function () {
+        return this.rootNode.minCount();
+    };
+    exports.SyntaxTree = SyntaxTree;
+    function MatchOption(tree, remainingTokens) {
+        this.tree = tree;
+        this.remainingTokens = remainingTokens;
+    }
+
+    MatchOption.prototype.remainingTokensCount = function () {
+        return this.remainingTokens ? this.remainingTokens.size() : 0;
+    };
+    MatchOption.prototype.isFinished = function () {
+        return this.tree.isFinished() && this.remainingTokensCount() < 1;
+    };
+    MatchOption.prototype.isEnd = function () {
+        return this.remainingTokensCount() < 1;
+    };
+    MatchOption.prototype.toString = function () {
+        return this.tree.toString() + (this.remainingTokens ? this.remainingTokens.toString() : "");
+    };
+    exports.MatchOption = MatchOption;
+    function Parser(startVar, rules, vars) {
+        this.rules = rules || [];
+        this.vars = vars || [];
+        this.startVar = startVar || null;
+        this.originRules = null;
+        this.destRuleMapping = null;
+        this._initialized = false;
+    }
+
+    /**
+     * 按DestVar对rules进行分组
+     */
+    Parser.prototype.groupRulesByDestVar = function () {
+        var destVars = new Set();
+        this.rules.forEach(function (rule) {
+            destVars.push(rule.destVar);
+        });
+        var groupedRules = [];
+        for (var i = 0; i < destVars.size(); ++i) {
+            var destVar = destVars.get(i);
+            var rules = this.findRulesOfDestVar(destVar);
+            if (rules != null) {
+                var groupRule = new Rule();
+                groupRule.destVar = destVar;
+                rules.forEach(function (rule) {
+                    rule.items.forEach(function (item) {
+                        groupRule.items.push(item);
+                    });
+                });
+                groupedRules.push(groupRule);
+            }
+        }
+        this.rules = groupedRules;
+    };
+    Parser.prototype.buildDestRuleMapping = function () {
+        this.destRuleMapping = {};
+        for (var i = 0; i < this.rules.size(); ++i) {
+            var rule = this.rules[i];
+            this.destRuleMapping[rule.destVar] = rule;
+        }
+    };
+    Parser._incNo = 1;
+    Parser.prototype.nextIncNo = function () {
+        return Parser._incNo++;
+    };
+    /**
+     * 带有消除直接左递归和间接左递归（间接左递归可以转成直接左递归再消除）
+     * 直接左递归的消除方法：
+     * 按DestVar对所有Rule产生式进行分组，
+     * 然后对于每一组，根据第一个子产生式的第一项是否是DestVar本身来判断是否是直接左递归
+     * 是直接左递归的那一组，都是以DestVar开头，所以可以组合成一个DestVar'的新Var，内容是上述直接左递归的子产生式的除了第一项外的内容，然后DestVar=>DestVar + DestVar'
+     * 另外非直接左递归的那一组可以组成一个新的DestVar''的新Var，所以DestVar => DestVar''
+     * 然后DestVar => DestVar + DestVar' | DestVar''
+     * 然后就可以改写成 DestVar => DestVar'' + P' 和P' => DestVar' + P' | ε
+     * 这样直接左递归就消除了
+     *
+     * TODO: 暂时没考虑间接左递归
+     * TODO: 移除无用规则
+     * TODO: 对于A=>B唯一的情况,可以直接A=> B的所有子产生式
+     * TODO: 其他优化
+     * @returns {Parser}
+     */
+    Parser.prototype.build = function () {
+        if (this._initialized) {
+            return this;
+        }
+        this._initialized = true;
+        this.originRules = this.rules;
+        this.groupRulesByDestVar();
+        var finalRules = [];
+        for (var i = 0; i < this.rules.size(); ++i) {
+            var rule = this.rules[i];
+            var splitedByLeftRecPair = rule.splitByLeftRecursive();
+            var leftRecItems = splitedByLeftRecPair.left;
+            var notLeftRecItems = splitedByLeftRecPair.right;
+            if (leftRecItems.size() > 0 && notLeftRecItems.size() < 1) {
+                throw new Error("the parse rule can't be used " + rule);
+            }
+            if (leftRecItems.size() < 1) {
+                finalRules.push(rule);
+                continue;
+            }
+            var leftRecItemVar; // 以上算法描述中的DestVar => DestVar + DestVar' 这个子产生式中的DestVar'
+            var notLeftRecItemVar; // 以上算法描述中的DestVar => DestVar'' 这个子产生式中的DestVar''
+            // 产生一个新Var代表上述直接左递归子产生式中的去掉头部的部分
+            var destVarLeftRecReplaceVar = new Var(rule.destVar.name + "@@left-" + this.nextIncNo());
+            destVarLeftRecReplaceVar.isMiddleVar = true;
+            destVarLeftRecReplaceVar.originVar = rule.destVar;
+            var destVarLeftRecReplaceVarRule = new Rule();
+            destVarLeftRecReplaceVarRule.destVar = destVarLeftRecReplaceVar;
+            for (var j = 0; j < leftRecItems.size(); ++j) {
+                var item = leftRecItems.get(j);
+                if (item.items.size() > 0) {
+                    var subItem = new RuleItem();
+                    subItem.items = item.subItems(1);
+                    subItem.extraInfo = item.extraInfo;
+                    destVarLeftRecReplaceVarRule.items.push(subItem);
+                }
+            }
+            finalRules.push(destVarLeftRecReplaceVarRule);
+            this.vars.push(destVarLeftRecReplaceVar);
+            leftRecItemVar = destVarLeftRecReplaceVar;
+            // 产生一个新Var代表上述非直接左递归子产生式中的全部
+            var destVarNotLeftRecReplaceVar = new Var(rule.destVar.name + "@@not-left-" + this.nextIncNo());
+            destVarNotLeftRecReplaceVar.isMiddleVar = true;
+            destVarNotLeftRecReplaceVar.isNotLeftVar = true;
+            destVarNotLeftRecReplaceVar.originVar = rule.destVar;
+            var destVarNotLeftRecReplaceVarRule = new Rule();
+            destVarNotLeftRecReplaceVarRule.destVar = destVarNotLeftRecReplaceVar;
+            destVarNotLeftRecReplaceVarRule.items = notLeftRecItems;
+            finalRules.push(destVarNotLeftRecReplaceVarRule);
+            this.vars.push(destVarNotLeftRecReplaceVar);
+            notLeftRecItemVar = destVarNotLeftRecReplaceVar;
+            var pVar = new Var(rule.destVar.name + "@@p-" + this.nextIncNo()); // 上面算法描述中的P'
+            pVar.isMiddleVar = true;
+            pVar.originVar = rule.destVar;
+            this.vars.push(pVar);
+            var pVarRule = new Rule();
+            pVarRule.destVar = pVar;
+            var pVarRuleItem1 = new RuleItem();
+            pVarRuleItem1.items = [leftRecItemVar, pVar];
+            var pVarRuleItem2 = new RuleItem();
+            var pVarRuleItem2EmptyVar = new EmptyVar();
+            pVarRuleItem2EmptyVar.isMiddleVar = true;
+            pVarRuleItem2EmptyVar.originVar = rule.destVar;
+            pVarRuleItem2.items = [pVarRuleItem2EmptyVar];
+            pVarRule.items.push(pVarRuleItem1);
+            pVarRule.items.push(pVarRuleItem2);
+            finalRules.push(pVarRule);
+            var destVarRule = new Rule();
+            destVarRule.destVar = rule.destVar;
+            var destVarRuleItem = new RuleItem();
+            destVarRuleItem.items = [notLeftRecItemVar, pVar];
+            destVarRule.items.push(destVarRuleItem);
+            finalRules.push(destVarRule);
+        }
+        this.rules = finalRules;
+        this.buildDestRuleMapping();
+        return this;
+    };
+    Parser.prototype.findRulesOfDestVar = function (destVar, rules) {
+        rules = rules || null;
+        var usingRules = rules != null ? rules : this.rules;
+        if (!this.destRuleMapping || rules != null) {
+            var result = [];
+            for (var i = 0; i < usingRules.size(); ++i) {
+                var rule = usingRules.get(i);
+                if (rule.destVar === destVar) {
+                    result.push(rule);
+                }
+            }
+            return result;
+        }
+        else {
+            if (destVar instanceof Var && this.destRuleMapping[destVar]) {
+                return [this.destRuleMapping[destVar]];
+            }
+            else {
+                return [];
+            }
+        }
+    };
+    Parser.prototype.parse = function (tokens) {
+        this.build();
+        var tree = new SyntaxTree();
+        tree.rootNode = new SyntaxTreeNode(this.startVar);
+        var allOptions = [];
+        allOptions.push(new MatchOption(tree, tokens));
+        var tokensCount = tokens.size();
+        while (allOptions.size() > 0) {
+            var option = allOptions[0];
+            allOptions.shift();
+            if (option.isFinished()) {
+                var finalTree = option.tree;
+                finalTree = this.getSyntaxTreeFromOriginRules(finalTree);
+                this.markExtraInfoInSyntaxTreeNode(finalTree.rootNode, this.originRules);
+                return finalTree;
+            }
+            if (option.tree.minCount() > tokensCount) {
+                continue;
+            }
+            var options = this.tryMatchNext(option.tree, option.remainingTokens);
+            if (options != null) {
+                allOptions.addAll(options);
+            }
+        }
+        return null;
+    };
+    /**
+     * 生成直接满足最初的文法规则的抽象语法树，方便下一步的使用
+     * 从抽象语法树的最左下角开始寻找（应该不一定要从左下角开始，但是选择这样统一逻辑），不断把中间过程的Var（只是left-var和p-var）的所有Items直接替换掉原来此Var的位置,如果此中间Var是not-left-var，则不这样做，而是把此not-left-var替换成原始的Var
+     * 碰到 EVar=>EVar这种的，直接简化成一层，碰到EmptyVar(IsMiddleVar=true)的，直接忽略掉
+     */
+    Parser.prototype.getSyntaxTreeFromOriginRules = function (tree) {
+        tree.rootNode.markSubParents();
+        var curNode = tree.firstMiddleVarNode();
+        var items, item;
+        while (curNode != null) {
+            if (!curNode.parent) {
+                throw new Error("inpossible state in common logic");
+            }
+            if (curNode.nodeVar instanceof EmptyVar) {
+                curNode.parent.items.remove(curNode);
+            }
+            else if (curNode.nodeVar.isNotLeftVar) {
+                curNode.nodeVar = curNode.nodeVar.originVar;
+            }
+            else {
+                items = curNode.items;
+                var idx = curNode.parent.items.indexOf(curNode);
+                curNode.parent.items.removeAt(idx);
+                for (var i = items.size() - 1; i >= 0; --i) {
+                    item = items[i];
+                    item.parent = curNode.parent;
+                    curNode.parent.items.insertAt(idx, item);
+                }
+            }
+            curNode = tree.firstMiddleVarNode();
+        }
+        // 简化EVar=>EVar这种为一层
+        curNode = tree.firstRepeatNode();
+        while (curNode != null) {
+            if (curNode.parent == null) {
+                throw new Error("inpossible state in common logic");
+            }
+            items = curNode.items;
+            for (var j = 0; j < items.size(); ++j) {
+                item = items.get(j);
+                item.parent = curNode.parent;
+            }
+            curNode.parent.items = curNode.items;
+            curNode = tree.firstRepeatNode();
+        }
+        return tree;
+    };
+    /**
+     * 在已经parser成功的语法树上,重新从根节点开始进行匹配rules,并且在上面标注RuleItem的ExtraInfo
+     */
+    Parser.prototype.markExtraInfoInSyntaxTreeNode = function (node, rules) {
+        var foundRules = this.findRulesOfDestVar(node.nodeVar, rules);
+        if (!foundRules || foundRules.size() < 1) {
+            return;
+        }
+        var rule = foundRules[0];
+        var item;
+        for (var i = 0; i < rule.items.size(); ++i) {
+            var ruleItem = rule.items.get(i);
+            if (node.items.size() !== ruleItem.items.size()) {
+                continue;
+            }
+            var matched = true;
+            for (var j = 0; j < ruleItem.items.size(); ++j) {
+                if (node.items[j].nodeVar != ruleItem.items[j]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                node.extraInfo = ruleItem.extraInfo;
+                for (var k = 0; k < node.items.size(); ++k) {
+                    item = node.items[k];
+                    this.markExtraInfoInSyntaxTreeNode(item, rules);
+                }
+                if (ruleItem.extraInfo && ruleItem.extraInfo.length > 0) {
+                    node.extraInfo = ruleItem.extraInfo;
+                }
+                else {
+                    for (var m = 0; m < node.items.size(); ++m) {
+                        item = node.items.get(m);
+                        if (item.extraInfo && item.extraInfo.length > 0) {
+                            node.extraInfo = item.extraInfo;
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+        }
+    };
+    /**
+     * when match next rule, may produce multiple options
+     */
+    Parser.prototype.tryMatchNext = function (tree, tokens, recursive) {
+        if (recursive === undefined) {
+            recursive = true;
+        }
+        var options = [];
+        var remainingTokens = tokens;
+        var remainingTokensCount = remainingTokens ? remainingTokens.size() : 0;
+        if (remainingTokensCount > 0 || tree.leftUnBoundVar() != null) {
+            tree = tree.cloneNew();
+            var leftNode = tree.leftUnBoundVar();
+            if (leftNode == null) {
+                if (tokens.size() > 0) {
+                    return null;
+                }
+                else {
+                    options.push(new MatchOption(tree, tokens));
+                    return options;
+                }
+            }
+            else if (leftNode.nodeVar instanceof FinalVar) {
+                if (leftNode.nodeVar instanceof EmptyVar) {
+                    leftNode.valueToken = Token.empty;
+                    leftNode.isBound = true;
+                    options.push(new MatchOption(tree, tokens));
+                    return options;
+                }
+                else if (tokens.head.tokenType === leftNode.nodeVar) {
+                    leftNode.valueToken = tokens.head;
+                    leftNode.isBound = true;
+                    options.push(new MatchOption(tree, tokens.tail));
+                    return options;
+                }
+                else {
+                    return null;
+                }
+            }
+            else {
+                var rules = this.findRulesOfDestVar(leftNode.nodeVar);
+                for (var i = 0; i < rules.size(); ++i) {
+                    var rule = rules[i];
+                    for (var j = 0; j < rule.items.size(); ++j) {
+                        var ruleItem = rule.items[j];
+                        var optionTree = tree.cloneNew();
+                        var optionLeftNode = optionTree.leftUnBoundVar();
+                        for (var k = 0; k < ruleItem.items.size(); ++k) {
+                            var ruleItemVar = ruleItem.items.get(k);
+                            optionLeftNode.isBound = true;
+                            optionLeftNode.items.push(new SyntaxTreeNode(ruleItemVar));
+                        }
+                        options.push(new MatchOption(optionTree, tokens));
+                    }
+                }
+                return options;
+            }
+        }
+        else {
+            options.push(new MatchOption(tree, tokens));
+            return options;
+        }
+    };
+    exports.Parser = Parser;
 })();
