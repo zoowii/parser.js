@@ -6,7 +6,8 @@ var Var = parser.Var,
     Rule = parser.Rule,
     RuleItem = parser.RuleItem,
     TokenList = parser.TokenList,
-    Token = parser.Token;
+    Token = parser.Token,
+    RegexReader = parser.RegexReader;
 
 
 function testRegexEngine() {
@@ -107,4 +108,53 @@ function testSimpleParser() {
     assert.equal(syntaxTree.toString(), "a + ( b * c )");
     console.log('-----end test simple parser-----');
 }
+function testFailParser() {
+    console.log('-----test fail parser-----');
+// a + b * c, symbol, +, *
+    // E => E * E | E + E | (E) | I, I => symbol
+    var EVar = new Var("E");
+    var iVar = new Var("I");
+    var mulVar = new FinalVar("*");
+    var addVar = new FinalVar("+");
+    var leftVar = new FinalVar("(");
+    var rightVar = new FinalVar(")");
+    var symbolVar = new FinalVar("Symbol");
+    var rule1 = new Rule(EVar, [
+        new RuleItem([leftVar, EVar, rightVar]),
+        new RuleItem([iVar]),
+        new RuleItem([EVar, mulVar, EVar]),
+        new RuleItem([EVar, addVar, EVar])
+    ]);
+    var rule2 = new Rule(iVar, [
+        new RuleItem([symbolVar])
+    ]);
+    var myparser = new Parser(EVar, [rule1, rule2], [EVar, iVar, mulVar, addVar, leftVar, rightVar, symbolVar]);
+    var tokens = TokenList.create(
+        new Token('a', symbolVar),
+        new Token('+', addVar),
+        new Token('(', leftVar),
+        new Token('b', symbolVar),
+        new Token('*', mulVar),
+        new Token('c', symbolVar)
+    );
+    var syntaxTree = myparser.parse(tokens);
+    assert.equal(null, syntaxTree);
+    console.log('-----end test fail parser-----');
+}
+function testRegexStringReader() {
+    console.log('-----test regex string reader=====');
+    var expr1 = RegexReader.read("(a{3})(b+)(([c\\s\\.\\d\\\\\\+\\u1234])*)");
+    expr1.build();
+    var r1 = expr1.match("aabbbc 123+556end");
+    var r2 = expr1.match("aaabbbc 123+556");
+    // var expr2 = RegexReader.read("abc");
+    console.log(expr1.toString());
+    console.log(r1.toString());
+    console.log(r2.toString());
+    assert.equal(false, r1.matched);
+    assert.equal(true, r2.matched);
+    console.log('-----end test regex string reader-----');
+}
 testSimpleParser();
+testFailParser();
+testRegexStringReader();

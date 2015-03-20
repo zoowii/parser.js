@@ -143,7 +143,7 @@
         this.matched = false;
         this.lastMatchedString = null;
         this.endState = null;
-        this.endGroupIdentity = null;
+        this.endgroupIdentity = null;
     }
 
     MatchResult.prototype.toString = function () {
@@ -306,7 +306,7 @@
             var newRemaning = remaining.substr(matchResult.lastMatchedString.length);
             if (remaining.length !== newRemaning.length) {
                 var matchGroupResult = new MatchGroupResult();
-                matchGroupResult.groupIdentity = matchResult.endGroupIdentity;
+                matchGroupResult.groupIdentity = matchResult.endgroupIdentity;
                 matchGroupResult.matchedString = matchResult.lastMatchedString;
                 matchResults.matchedItems.push(matchGroupResult)
             }
@@ -351,7 +351,7 @@
                     matchResult.lastMatchedString = lastMatchedString;
                     matchResult.matched = true;
                     matchResult.endState = lastState;
-                    matchResult.endGroupIdentity = lastStateGroup;
+                    matchResult.endgroupIdentity = lastStateGroup;
                     return matchResult;
                 }
             }
@@ -385,7 +385,7 @@
         matchResult.lastMatchedString = lastMatchedString;
         matchResult.matched = false;
         matchResult.endState = lastState;
-        matchResult.endGroupIdentity = lastStateGroup;
+        matchResult.endgroupIdentity = lastStateGroup;
         return matchResult;
     };
     NFAMachine.prototype.toString = function () {
@@ -531,7 +531,7 @@
     RegexExpr.prototype.createEmptyCharString = function () {
         return '';
     };
-    RegexExpr.prototype.getOrCreateInStateMapping = function (mapping, state) {
+    RegexExpr.prototype.getOrcreateInStateMapping = function (mapping, state) {
         if (mapping[state] !== undefined) {
             return mapping[state];
         }
@@ -543,21 +543,21 @@
     RegexExpr.prototype.copyNew = function () {
         var expr = this.createInstance();
         var stateMapping = {};
-        expr.startState = this.getOrCreateInStateMapping(stateMapping, this.startState);
+        expr.startState = this.getOrcreateInStateMapping(stateMapping, this.startState);
         var i;
         expr.states.clear();
         for (i = 0; i < this.states.length; ++i) {
-            expr.states.push(this.getOrCreateInStateMapping(stateMapping, this.states[i]));
+            expr.states.push(this.getOrcreateInStateMapping(stateMapping, this.states[i]));
         }
         expr.acceptableStates.clear();
         for (i = 0; i < this.acceptableStates.length; ++i) {
-            expr.acceptableStates.push(this.getOrCreateInStateMapping(stateMapping, this.acceptableStates[i]));
+            expr.acceptableStates.push(this.getOrcreateInStateMapping(stateMapping, this.acceptableStates[i]));
         }
         expr.transforms.clear();
         for (i = 0; i < this.transforms.length; ++i) {
             var trans = this.transforms[i];
-            var from = this.getOrCreateInStateMapping(stateMapping, trans.from);
-            var to = this.getOrCreateInStateMapping(stateMapping, trans.to);
+            var from = this.getOrcreateInStateMapping(stateMapping, trans.from);
+            var to = this.getOrcreateInStateMapping(stateMapping, trans.to);
             var newTrans = trans.copyNew();
             newTrans.from = from;
             newTrans.to = to;
@@ -1028,7 +1028,7 @@
             return null;
         }
         var pos = tokens.length - 1;
-        var result = new this._constructor(tokens[pos], null);
+        var result = new TokenList(tokens[pos], null);
         while (pos > 0) {
             pos -= 1;
             result = result.addTokenToHead(tokens[pos]);
@@ -1063,7 +1063,7 @@
         this.extraInfo = extraInfo || null;
     }
 
-    RuleItem.prototype.subItems = function (start, end) {
+    RuleItem.prototype.subitems = function (start, end) {
         if (end === undefined) {
             end = 0;
         }
@@ -1234,7 +1234,7 @@
         return null;
     };
     /**
-     * 找到第一个父节点只包含一个子节点，且父子节点的NodeVar是同一个Var，返回这种情况下的子节点
+     * 找到第一个父节点只包含一个子节点，且父子节点的nodeVar是同一个Var，返回这种情况下的子节点
      */
     SyntaxTree.prototype.firstRepeatNodeUnder = function (node) {
         if (node.items.size() === 1 && node.nodeVar === node.items[0].nodeVar) {
@@ -1364,12 +1364,12 @@
         for (var i = 0; i < this.rules.size(); ++i) {
             var rule = this.rules[i];
             var splitedByLeftRecPair = rule.splitByLeftRecursive();
-            var leftRecItems = splitedByLeftRecPair.left;
-            var notLeftRecItems = splitedByLeftRecPair.right;
-            if (leftRecItems.size() > 0 && notLeftRecItems.size() < 1) {
+            var leftRecitems = splitedByLeftRecPair.left;
+            var notLeftRecitems = splitedByLeftRecPair.right;
+            if (leftRecitems.size() > 0 && notLeftRecitems.size() < 1) {
                 throw new Error("the parse rule can't be used " + rule);
             }
-            if (leftRecItems.size() < 1) {
+            if (leftRecitems.size() < 1) {
                 finalRules.push(rule);
                 continue;
             }
@@ -1381,11 +1381,11 @@
             destVarLeftRecReplaceVar.originVar = rule.destVar;
             var destVarLeftRecReplaceVarRule = new Rule();
             destVarLeftRecReplaceVarRule.destVar = destVarLeftRecReplaceVar;
-            for (var j = 0; j < leftRecItems.size(); ++j) {
-                var item = leftRecItems.get(j);
+            for (var j = 0; j < leftRecitems.size(); ++j) {
+                var item = leftRecitems.get(j);
                 if (item.items.size() > 0) {
                     var subItem = new RuleItem();
-                    subItem.items = item.subItems(1);
+                    subItem.items = item.subitems(1);
                     subItem.extraInfo = item.extraInfo;
                     destVarLeftRecReplaceVarRule.items.push(subItem);
                 }
@@ -1400,7 +1400,7 @@
             destVarNotLeftRecReplaceVar.originVar = rule.destVar;
             var destVarNotLeftRecReplaceVarRule = new Rule();
             destVarNotLeftRecReplaceVarRule.destVar = destVarNotLeftRecReplaceVar;
-            destVarNotLeftRecReplaceVarRule.items = notLeftRecItems;
+            destVarNotLeftRecReplaceVarRule.items = notLeftRecitems;
             finalRules.push(destVarNotLeftRecReplaceVarRule);
             this.vars.push(destVarNotLeftRecReplaceVar);
             notLeftRecItemVar = destVarNotLeftRecReplaceVar;
@@ -1466,7 +1466,7 @@
             if (option.isFinished()) {
                 var finalTree = option.tree;
                 finalTree = this.getSyntaxTreeFromOriginRules(finalTree);
-                this.markExtraInfoInSyntaxTreeNode(finalTree.rootNode, this.originRules);
+                this.markextraInfoInSyntaxTreeNode(finalTree.rootNode, this.originRules);
                 return finalTree;
             }
             if (option.tree.minCount() > tokensCount) {
@@ -1481,7 +1481,7 @@
     };
     /**
      * 生成直接满足最初的文法规则的抽象语法树，方便下一步的使用
-     * 从抽象语法树的最左下角开始寻找（应该不一定要从左下角开始，但是选择这样统一逻辑），不断把中间过程的Var（只是left-var和p-var）的所有Items直接替换掉原来此Var的位置,如果此中间Var是not-left-var，则不这样做，而是把此not-left-var替换成原始的Var
+     * 从抽象语法树的最左下角开始寻找（应该不一定要从左下角开始，但是选择这样统一逻辑），不断把中间过程的Var（只是left-var和p-var）的所有items直接替换掉原来此Var的位置,如果此中间Var是not-left-var，则不这样做，而是把此not-left-var替换成原始的Var
      * 碰到 EVar=>EVar这种的，直接简化成一层，碰到EmptyVar(IsMiddleVar=true)的，直接忽略掉
      */
     Parser.prototype.getSyntaxTreeFromOriginRules = function (tree) {
@@ -1527,9 +1527,9 @@
         return tree;
     };
     /**
-     * 在已经parser成功的语法树上,重新从根节点开始进行匹配rules,并且在上面标注RuleItem的ExtraInfo
+     * 在已经parser成功的语法树上,重新从根节点开始进行匹配rules,并且在上面标注RuleItem的extraInfo
      */
-    Parser.prototype.markExtraInfoInSyntaxTreeNode = function (node, rules) {
+    Parser.prototype.markextraInfoInSyntaxTreeNode = function (node, rules) {
         var foundRules = this.findRulesOfDestVar(node.nodeVar, rules);
         if (!foundRules || foundRules.size() < 1) {
             return;
@@ -1552,7 +1552,7 @@
                 node.extraInfo = ruleItem.extraInfo;
                 for (var k = 0; k < node.items.size(); ++k) {
                     item = node.items[k];
-                    this.markExtraInfoInSyntaxTreeNode(item, rules);
+                    this.markextraInfoInSyntaxTreeNode(item, rules);
                 }
                 if (ruleItem.extraInfo && ruleItem.extraInfo.length > 0) {
                     node.extraInfo = ruleItem.extraInfo;
@@ -1634,4 +1634,295 @@
         }
     };
     exports.Parser = Parser;
+    var RegexReader = {};
+    exports.RegexReader = RegexReader;
+    function C(c) {
+        return new CharExpr(c);
+    }
+
+    RegexReader.finalVarDict = null;
+    function internFinalVar(name) {
+        if (RegexReader.finalVarDict == null) {
+            RegexReader.finalVarDict = {};
+        }
+        if (!RegexReader.finalVarDict[name]) {
+            RegexReader.finalVarDict[name] = new FinalVar(name);
+        }
+        return RegexReader.finalVarDict[name];
+    }
+
+    /**
+     * Supported features
+     * '|'
+     * ( ... ) group
+     * \d digit
+     * \w alpha or digit
+     * \uabcd unicode char support
+     * a-b char range
+     * [abc] union
+     * abc concat
+     * a+ repeat at least one times
+     * a* repeat at least zero times
+     * a? repeat one or zero times
+     * a{m[,n]} repeat at least m times [and at most n times]
+     * . any char
+     * \s space
+     * \\ \+ \* \{ \[ \( \| \? \. \- ... escape
+     */
+    RegexReader.read = function (regex) {
+        var escape = C('\\'); // \
+        var escapeEscape = escape.concat(escape); // \\
+        escapeEscape.markGroup("\\\\");
+        var escapeAdd = escape.concat(C('+')); // \+
+        escapeAdd.markGroup("\\+");
+        var escapeMul = escape.concat(C('*')); // \*
+        escapeMul.markGroup("\\*");
+        var escapeHkh = escape.concat(C('{')); // \{
+        escapeHkh.markGroup("\\{");
+        var escapeZkh = escape.concat(C('[')); // \[
+        escapeZkh.markGroup("\\[");
+        var escapeXkh = escape.concat(C('(')); // \(
+        escapeXkh.markGroup("\\(");
+        var escapeRightHkh = escape.concat(C('}')); // \}
+        escapeRightHkh.markGroup("\\}");
+        var escapeRightZkh = escape.concat(C(']')); // \]
+        escapeRightZkh.markGroup("\\]");
+        var escapeRightXkh = escape.concat(C(')')); // \)
+        escapeRightXkh.markGroup("\\)");
+        var escapeOr = escape.concat(C('|')); // \|
+        escapeOr.markGroup("\\|");
+        var escapeOptional = escape.concat(C('?')); // \?
+        escapeOptional.markGroup("\\?");
+        var escapeAny = escape.concat(C('.')); // \.
+        escapeAny.markGroup("\\.");
+        var escapeTo = escape.concat(C('-')); // \-
+        escapeTo.markGroup("\\-");
+        var space = escape.concat(C('s')); // \s
+        space.markGroup("\\s");
+        var digit = escape.concat(C('d')); // \d
+        digit.markGroup("\\d");
+        var alphaOrDigit = escape.concat(C('w')); // \w
+        alphaOrDigit.markGroup("\\w");
+        var unicode = escape.concat(C('u')).concat(new DigitExpr().union(new AlphaExpr()).repeat(4));
+        unicode.markGroup("unicode");
+        var add = C('+');
+        add.markGroup("+");
+        var closure = C('*');
+        closure.markGroup("*");
+        var optional = C('?');
+        optional.markGroup("?");
+        var any = C('.');
+        any.markGroup(".");
+        var leftXkh = C('(');
+        leftXkh.markGroup("(");
+        var rightXkh = C(')');
+        rightXkh.markGroup(")");
+        var leftZkh = C('[');
+        leftZkh.markGroup("[");
+        var rightZkh = C(']');
+        rightZkh.markGroup("]");
+        var leftDkh = C('{');
+        leftDkh.markGroup("{");
+        var rightDkh = C('}');
+        rightDkh.markGroup("}");
+        var comma = C(',');
+        comma.markGroup(",");
+        var or = C('|');
+        or.markGroup("|");
+        var range = C('-');
+        range.markGroup("-");
+        // var charExpr = new CharRangeExpr(String.fromCharCode(0), String.fromCharCode(127));
+        var charExpr = new CharNotInRangeExpr("+*?.()[]{},-|");
+        charExpr.markGroup("char");
+        var regexReaderExpr = RegexExpr.unionAll(escapeEscape, escapeAdd, escapeMul, escapeHkh, escapeZkh,
+            escapeXkh, escapeRightHkh, escapeRightZkh, escapeRightXkh, escapeOr, escapeOptional, escapeAny, escapeTo, space, digit, alphaOrDigit, unicode, add, closure, optional, any, leftXkh, rightXkh,
+            leftZkh, rightZkh, leftDkh, rightDkh, comma, or, range, charExpr);
+        regexReaderExpr.build();
+        var regexMatchedTokensFromRegex = regexReaderExpr.matchAll(regex);
+        var tokenListBuiding = [];
+        for (var i = 0; i < regexMatchedTokensFromRegex.matchedItems.length; ++i) {
+            var tokenFromRegex = regexMatchedTokensFromRegex.matchedItems[i];
+            var token = new Token(tokenFromRegex.matchedString.toString(), internFinalVar(tokenFromRegex.groupIdentity));
+            tokenListBuiding.push(token);
+        }
+        var tokens = TokenList.create(tokenListBuiding);
+        var EVar = new Var("E");
+        var IVar = new Var("I");
+        var cSeqVar = new Var("CharSeq");
+        var iRule = new Rule(IVar, [
+            RuleItem.create(internFinalVar(escapeEscape.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeTo.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeAdd.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeMul.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeHkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeRightHkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeZkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeRightZkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeXkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeRightXkh.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeOr.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeOptional.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeAny.groupIdentity)),
+            RuleItem.create(internFinalVar(space.groupIdentity)).extra("space"),
+            RuleItem.create(internFinalVar(digit.groupIdentity)).extra("digit"),
+            RuleItem.create(internFinalVar(alphaOrDigit.groupIdentity)).extra("alphaOrDigit"),
+            RuleItem.create(internFinalVar(unicode.groupIdentity)).extra("unicode"),
+            RuleItem.create(internFinalVar(charExpr.groupIdentity))
+        ]);
+        var cSeqRule = new Rule(cSeqVar, [
+            RuleItem.create(IVar),
+            RuleItem.create(IVar, internFinalVar(range.groupIdentity), IVar).extra("a-b"),
+            RuleItem.create(IVar, cSeqVar).extra("CharSeqConcat")
+        ]);
+        var eRule = new Rule(EVar, [
+            RuleItem.create(internFinalVar(leftXkh.groupIdentity), EVar, internFinalVar(rightXkh.groupIdentity)).extra("(a)"),
+            RuleItem.create(EVar, internFinalVar(or.groupIdentity), EVar).extra("a|b"),
+            RuleItem.create(IVar),
+            RuleItem.create(cSeqVar),
+            RuleItem.create(internFinalVar(leftZkh.groupIdentity), cSeqVar, internFinalVar(rightZkh.groupIdentity)).extra("[abc]"),
+            // new RuleItem(){items={
+            //                internFinalVar(leftZkh.groupIdentity), IVar, internFinalVar(range.groupIdentity), IVar, internFinalVar(rightZkh.groupIdentity)
+            //          }}.extra("[a-b]"),
+            RuleItem.create(EVar, internFinalVar(closure.groupIdentity)).extra("Closure"),
+            RuleItem.create(EVar, internFinalVar(add.groupIdentity)).extra("Repeat+"),
+            RuleItem.create(EVar, internFinalVar(optional.groupIdentity)).extra("Optional"),
+            RuleItem.create(EVar, internFinalVar(leftDkh.groupIdentity), cSeqVar, internFinalVar(rightDkh.groupIdentity)).extra("x{m}"),
+            RuleItem.create(EVar, internFinalVar(leftDkh.groupIdentity), cSeqVar, internFinalVar(comma.groupIdentity), cSeqVar,
+                internFinalVar(rightDkh.groupIdentity)).extra("x{m,n}"),
+            RuleItem.create(EVar, EVar).extra("Concat")
+        ]);
+        var regexParser = new Parser(EVar, [iRule, cSeqRule, eRule], [
+            EVar, IVar, cSeqVar
+        ]);
+        var regexSyntaxTree = regexParser.parse(tokens);
+        return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(regexSyntaxTree.rootNode);
+    };
+    /**
+     * 获得IVar节点的文本内容，如果有转义，要去掉转义符
+     * @param node
+     * @returns {*}
+     * @constructor
+     */
+    RegexReader.gettextOfIVarNode = function (node) {
+        return node.items[0].items[0].valueToken.text; // FIXME
+    };
+    /**
+     * 因为cSeqVar节点是类似head-tail的结构，所以用这个方法来获取其实实际的所有元素
+     */
+    RegexReader.getAllitemsInCharSeqNode = function (node) {
+        if (node.nodeVar.name !== "CharSeq" || node.items.size() > 2) {
+            return [node];
+        }
+        if (node.items.size() === 1 || node.items.size() === 2) {
+            var result = [];
+            node.items.forEach(function (item) {
+                result.addAll(RegexReader.getAllitemsInCharSeqNode(item));
+            });
+            return result;
+        }
+        throw new Error("impossible state");
+    };
+    /**
+     * 从cSeqVar的节点中找到所有的字符
+     * TODO: 这里还没考虑\w这类字符
+     */
+    RegexReader.getAllCharsInCharSeqNode = function (node, initial) {
+        initial = initial || '';
+        if (node.items.size() < 1) {
+            return initial;
+        }
+        if (node.items.size() == 1) {
+            return RegexReader.gettextOfIVarNode(node) + initial;
+        }
+        if (node.items.size() == 2) {
+            return node.items[0].items[0].valueToken.text[0] + RegexReader.getAllCharsInCharSeqNode(node.items[1], initial);
+        }
+        throw new Error("not supported get chars in char seq node");
+    };
+    RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr = function (node) {
+        if (node.nodeVar.name === "char") {
+            return new CharExpr(node.valueToken.text[0]);
+        }
+        if (node.items.size() === 1) {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]);
+        }
+        if (node.nodeVar.name === "I") {
+            if (node.items[0].valueToken.text.length > 1 && node.items[0].valueToken.text.startsWith("\\")) {
+                return new CharExpr(node.items[0].valueToken.text[1]);
+            }
+            if (node.extraInfo === "space") {
+                return CharExpr.createUnionFromChars(" \n\t\r");
+            }
+            if (node.extraInfo === "digit") {
+                return new DigitExpr();
+            }
+            if (node.extraInfo === "alphaOrDigit") {
+                return new AlphaExpr().union(new DigitExpr());
+            }
+            if (node.extraInfo === "unicode") {
+                return new CharExpr('\0'); // FIXME: now unicode not supported
+            }
+            throw new Error("not supported char type now");
+        }
+        if (node.extraInfo === "(a)") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[1]);
+        }
+        if (node.extraInfo === "a|b") {
+            return RegexExpr.unionAll(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]), RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[2]));
+        }
+        if (node.extraInfo === "Closure") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).closure();
+        }
+        if (node.extraInfo === "Repeat+") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).plus();
+        }
+        if (node.extraInfo === "Optional") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).optional();
+        }
+        if (node.extraInfo === "x{m}") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).repeat(parseInt(RegexReader.getAllCharsInCharSeqNode(node.items[2])));
+        }
+        if (node.extraInfo === "x{m,n}") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).repeat(parseInt(node.items[2].valueToken.text), parseInt(node.items[4].valueToken.text));
+        }
+        if (node.extraInfo === "Concat") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).concat(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[1]));
+        }
+        if (node.extraInfo === "a-b") {
+            return new CharRangeExpr(node.items[0].valueToken.text[0], node.items[2].valueToken.text[1]);
+        }
+        if (node.extraInfo === "CharSeqConcat") {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).concat(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[1]));
+        }
+        if (node.extraInfo === "[abc]") {
+            var items = RegexReader.getAllitemsInCharSeqNode(node.items[1]);
+            var expritems = [];
+            for (var i = 0; i < items.size(); ++i) {
+                expritems.push(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(items[i]));
+            }
+            return RegexExpr.unionAll.apply(this, expritems);
+        }
+        if (node.items.size() === 1) {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]);
+        }
+        if (node.nodeVar.name === "\\s") {
+            return CharExpr.createUnionFromChars(" \n\t\r");
+        }
+        if (node.nodeVar.name === "\\.") {
+            return new AnyCharExpr();
+        }
+        if (node.nodeVar.name === "\\d") {
+            return new DigitExpr();
+        }
+        if (node.nodeVar.name === "\\w") {
+            return new AlphaExpr().union(new DigitExpr());
+        }
+        if (["\\\\", "\\+", "\\-", "\\(", "\\)", "\\[", "\\]", "\\{", "\\}", "\\*", "\\,", "\\?"].indexOf(node.nodeVar.name) >= 0) {
+            return new CharExpr(node.nodeVar.name[1]);
+        }
+        if (node.nodeVar.name === "unicode") {
+            return new CharExpr('\0'); // FIXME: unicode not supported now
+        }
+        return null;
+    };
 })();
