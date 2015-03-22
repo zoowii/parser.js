@@ -130,13 +130,15 @@ console.log('-----test simple parser-----');
 ## 语法规则定义(另有基础API的方式也可以定义,这是为了方便使用提供的API)
 
 语法规则定义方法如下:
+
 rules: `[ rule1, rule2, rule3, ... ]`
 
 rule: `[ 目标Var, ruleItem1, ruleItem2, ... ]`
 
 ruleItem:
 
-```正则表达式字符串
+```
+    正则表达式字符串
     | Var实例
     | [ Var实例或者正则表达式字符串, ... ]
     | {name: '子规则名称,非var,在最终语法分析树中会有体现,没有这项的前面2种ruleItem,name其实是目标Var的名称', rule: ruleItem}
