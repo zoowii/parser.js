@@ -7,7 +7,15 @@ var Var = parser.Var,
     RuleItem = parser.RuleItem,
     TokenList = parser.TokenList,
     Token = parser.Token,
-    RegexReader = parser.RegexReader;
+    RegexReader = parser.RegexReader,
+    V = parser.V;
+
+var log = console.log;
+
+console.log = function () {
+    log.call(console, new Date() + "," + Date.now() / 1000 + ':');
+    log.apply(console, arguments);
+};
 
 
 function testRegexEngine() {
@@ -143,10 +151,11 @@ function testFailParser() {
 }
 function testRegexStringReader() {
     console.log('-----test regex string reader=====');
-    var expr1 = RegexReader.read("(a{3})(b+)(([c\\s\\.\\d\\\\\\+\\u1234])*)");
+    var expr1 = RegexReader.read("\"(a{3,})(b+)(([c\\s\\.\\d\\\\\\+\\u1234])*)");
     expr1.build();
+    console.log('regex build done');
     var r1 = expr1.match("aabbbc 123+556end");
-    var r2 = expr1.match("aaabbbc 123+556");
+    var r2 = expr1.match("\"aaaabbbc 123+556");
     // var expr2 = RegexReader.read("abc");
     console.log(expr1.toString());
     console.log(r1.toString());
@@ -157,4 +166,45 @@ function testRegexStringReader() {
 }
 testSimpleParser();
 testFailParser();
-testRegexStringReader();
+// testRegexStringReader();
+setTimeout(testRegexStringReader, 3000);
+
+function testParserApi() {
+    console.log('-----test parser api-----');
+    parser.clearVarCache();
+    var syntaxParserAndTokener = parser.buildSyntaxTreeParser(V('json'), [
+        [V('bool'),
+            "(?:true|false)\\s*"],
+        [V('number'),
+            "(?:[+-]?(?:(0x[0-9a-fA-F]+|0[0-7]+)|((?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?|NaN|Infinity)))\\s*"],
+        [V('string'),
+            "(?:(?:\"((?:\\.|[^\"])*)\"|'((?:\\.|[^'])*)'))\\s*"],
+        [V('name'),
+            V('string')],
+        [V('value'),
+            V('bool'), V('number'), V('string'), V('json-object'), V('json-array')],
+        [V('json-object-pair'),
+            [V('name'), ":\\s*", V('value')]],
+        [V('json-object-pairs'),
+            V('json-object-pair'),
+            [V('json-object-pair'), ",\\s*", V('json-object-pairs')]
+        ],
+        [V('json-object'),
+            ["\\{\\s*", V('json-object-pairs'), "\\}\\s*"]],
+        [V('values'),
+            V('value'),
+            [V('value'), ",\\s*", V('values')]],
+        [V('json-array'),
+            ["\\[\\s*", V('values'), "]\\s*"]],
+        [V('json'),
+            V('json-object'), V('json-array'), [V("\\s+"), V('json')]]
+    ]);
+    var jsonParser = syntaxParserAndTokener.parser;
+    var tokenPatterns = syntaxParserAndTokener.token_patterns;
+    var text = '{"name": "zoowii", "age": 24, "position": {"country": "China", "city": "Nanjing"}}';
+    var tokens = parser.generateTokenListUsingInnerRegex(tokenPatterns, text, console.log);
+    var json = jsonParser.parse(tokens);
+    console.log(json.toString());
+    console.log('-----end test parser api-----');
+}
+testParserApi();

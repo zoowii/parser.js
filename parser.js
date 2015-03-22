@@ -1,4 +1,9 @@
 (function () {
+    if (typeof module === 'undefined') {
+        var exports = this.parser = {};
+    } else {
+        var exports = module.exports;
+    }
     var abstractMethod = function () {
     };
     if (Array.prototype.contains === undefined) {
@@ -78,6 +83,51 @@
             return this;
         };
     }
+    if (Array.prototype.map === undefined) {
+        Array.prototype.map = function (callback) {
+            var result = [];
+            for (var i = 0; i < this.length; ++i) {
+                result.push(callback(this[i], i));
+            }
+            return result;
+        };
+    }
+    if (Array.prototype.compact === undefined) {
+        Array.prototype.compact = function () {
+            var result = [];
+            for (var i = 0; i < this.length; ++i) {
+                if (this[i] !== undefined && this[i] !== null) {
+                    result.push(this[i]);
+                }
+            }
+            return result;
+        };
+    }
+    if (Array.prototype.subItems === undefined) {
+        Array.prototype.subItems = function (start, end) {
+            if (end === undefined) {
+                end = 0;
+            }
+            if (start === undefined) {
+                start = 0;
+            }
+            if (end == 0) {
+                end = this.length;
+            }
+            var result = [];
+            for (var i = start; i < end; ++i) {
+                if (i >= 0 && i < this.length) {
+                    result.push(this[i]);
+                }
+            }
+            return result;
+        };
+    }
+    ['Arguments', 'Function', 'String', 'Number', 'Date', 'RegExp', 'Error'].forEach(function (name) {
+        exports['is' + name] = function (obj) {
+            return Object.prototype.toString.call(obj) === '[object ' + name + ']';
+        };
+    });
     var __extends = function (child, parent) {
         for (var key in parent) {
             if (Object.prototype.hasOwnProperty.call(parent, key)) {
@@ -258,6 +308,7 @@
         for (var i = 0; i < this.states.length; ++i) {
             this.states[i].groupIdentity = group;
         }
+        return this;
     };
     NFAMachine.prototype.addTransform = function (trans) {
         this.transforms.add(trans);
@@ -748,16 +799,29 @@
         return new CharExpr('\0');
     };
     CharExpr.createUnionFromChars = function (str) {
-        if (str == null || str.length < 1) {
+        if (str === null || str.length < 1) {
             return new EmptyExpr();
         }
         var result = null;
         for (var i = 0; i < str.length; ++i) {
-            if (i == 0) {
+            if (i === 0) {
                 result = new CharExpr(str[i]);
-            }
-            else {
+            } else {
                 result = result.union(new CharExpr(str[i]));
+            }
+        }
+        return result;
+    };
+    CharExpr.createConcatFromChars = function (str) {
+        if (str === null || str.length < 1) {
+            return new EmptyExpr();
+        }
+        var result = null;
+        for (var i = 0; i < str.length; ++i) {
+            if (i === 0) {
+                result = new CharExpr(str[i]);
+            } else {
+                result = result.concat(new CharExpr(str[i]));
             }
         }
         return result;
@@ -912,6 +976,17 @@
         this.minCount = 1;
     }
 
+    function isVar(v) {
+        return v instanceof Var || v instanceof FinalVar;
+    }
+
+    exports.isVar = isVar;
+    function isFinalVar(v) {
+        return v instanceof FinalVar || (v && v.isFinal);
+    }
+
+    exports.isFinalVar = isFinalVar;
+
     Var.prototype.toString = function () {
         return this.name;
     };
@@ -1063,7 +1138,7 @@
         this.extraInfo = extraInfo || null;
     }
 
-    RuleItem.prototype.subitems = function (start, end) {
+    RuleItem.prototype.subItems = function (start, end) {
         if (end === undefined) {
             end = 0;
         }
@@ -1167,7 +1242,7 @@
     };
     SyntaxTreeNode.prototype.toString = function () {
         var builder = '';
-        if (this.nodeVar instanceof FinalVar && this.isBound) {
+        if (isFinalVar(this.nodeVar) && this.isBound) {
             return this.valueToken.toString();
         }
         var showParent = this.items.size() < 1;
@@ -1191,7 +1266,7 @@
         return builder;
     };
     SyntaxTreeNode.prototype.minCount = function () {
-        if (this.nodeVar instanceof FinalVar) {
+        if (isFinalVar(this.nodeVar)) {
             return this.nodeVar.minCount;
         }
         else {
@@ -1385,7 +1460,7 @@
                 var item = leftRecitems.get(j);
                 if (item.items.size() > 0) {
                     var subItem = new RuleItem();
-                    subItem.items = item.subitems(1);
+                    subItem.items = item.subItems(1);
                     subItem.extraInfo = item.extraInfo;
                     destVarLeftRecReplaceVarRule.items.push(subItem);
                 }
@@ -1466,7 +1541,7 @@
             if (option.isFinished()) {
                 var finalTree = option.tree;
                 finalTree = this.getSyntaxTreeFromOriginRules(finalTree);
-                this.markextraInfoInSyntaxTreeNode(finalTree.rootNode, this.originRules);
+                this.markExtraInfoInSyntaxTreeNode(finalTree.rootNode, this.originRules);
                 return finalTree;
             }
             if (option.tree.minCount() > tokensCount) {
@@ -1529,7 +1604,7 @@
     /**
      * 在已经parser成功的语法树上,重新从根节点开始进行匹配rules,并且在上面标注RuleItem的extraInfo
      */
-    Parser.prototype.markextraInfoInSyntaxTreeNode = function (node, rules) {
+    Parser.prototype.markExtraInfoInSyntaxTreeNode = function (node, rules) {
         var foundRules = this.findRulesOfDestVar(node.nodeVar, rules);
         if (!foundRules || foundRules.size() < 1) {
             return;
@@ -1552,7 +1627,7 @@
                 node.extraInfo = ruleItem.extraInfo;
                 for (var k = 0; k < node.items.size(); ++k) {
                     item = node.items[k];
-                    this.markextraInfoInSyntaxTreeNode(item, rules);
+                    this.markExtraInfoInSyntaxTreeNode(item, rules);
                 }
                 if (ruleItem.extraInfo && ruleItem.extraInfo.length > 0) {
                     node.extraInfo = ruleItem.extraInfo;
@@ -1592,7 +1667,7 @@
                     return options;
                 }
             }
-            else if (leftNode.nodeVar instanceof FinalVar) {
+            else if (isFinalVar(leftNode.nodeVar)) {
                 if (leftNode.nodeVar instanceof EmptyVar) {
                     leftNode.valueToken = Token.empty;
                     leftNode.isBound = true;
@@ -1660,6 +1735,7 @@
      * \uabcd unicode char support
      * a-b char range
      * [abc] union
+     * [^abc] except union
      * abc concat
      * a+ repeat at least one times
      * a* repeat at least zero times
@@ -1693,8 +1769,8 @@
         escapeOr.markGroup("\\|");
         var escapeOptional = escape.concat(C('?')); // \?
         escapeOptional.markGroup("\\?");
-        var escapeAny = escape.concat(C('.')); // \.
-        escapeAny.markGroup("\\.");
+        var escapeAny = escape.concat(C('.')).markGroup("\\."); // \.
+        var escapeExludeRange = escape.concat(C('^')).markGroup('\\^'); // \^
         var escapeTo = escape.concat(C('-')); // \-
         escapeTo.markGroup("\\-");
         var space = escape.concat(C('s')); // \s
@@ -1731,8 +1807,9 @@
         or.markGroup("|");
         var range = C('-');
         range.markGroup("-");
+        var exludeRange = C('^').markGroup('^');
         // var charExpr = new CharRangeExpr(String.fromCharCode(0), String.fromCharCode(127));
-        var charExpr = new CharNotInRangeExpr("+*?.()[]{},-|");
+        var charExpr = new CharNotInRangeExpr("+*?.()[]{},-|^");
         charExpr.markGroup("char");
         var regexReaderExpr = RegexExpr.unionAll(escapeEscape, escapeAdd, escapeMul, escapeHkh, escapeZkh,
             escapeXkh, escapeRightHkh, escapeRightZkh, escapeRightXkh, escapeOr, escapeOptional, escapeAny, escapeTo, space, digit, alphaOrDigit, unicode, add, closure, optional, any, leftXkh, rightXkh,
@@ -1763,6 +1840,7 @@
             RuleItem.create(internFinalVar(escapeOr.groupIdentity)),
             RuleItem.create(internFinalVar(escapeOptional.groupIdentity)),
             RuleItem.create(internFinalVar(escapeAny.groupIdentity)),
+            RuleItem.create(internFinalVar(escapeExludeRange.groupIdentity)),
             RuleItem.create(internFinalVar(space.groupIdentity)).extra("space"),
             RuleItem.create(internFinalVar(digit.groupIdentity)).extra("digit"),
             RuleItem.create(internFinalVar(alphaOrDigit.groupIdentity)).extra("alphaOrDigit"),
@@ -1780,13 +1858,12 @@
             RuleItem.create(IVar),
             RuleItem.create(cSeqVar),
             RuleItem.create(internFinalVar(leftZkh.groupIdentity), cSeqVar, internFinalVar(rightZkh.groupIdentity)).extra("[abc]"),
-            // new RuleItem(){items={
-            //                internFinalVar(leftZkh.groupIdentity), IVar, internFinalVar(range.groupIdentity), IVar, internFinalVar(rightZkh.groupIdentity)
-            //          }}.extra("[a-b]"),
+            RuleItem.create(internFinalVar(leftZkh.groupIdentity), internFinalVar(exludeRange.groupIdentity), cSeqVar, internFinalVar(rightZkh.groupIdentity)).extra('[^abc]'),
             RuleItem.create(EVar, internFinalVar(closure.groupIdentity)).extra("Closure"),
             RuleItem.create(EVar, internFinalVar(add.groupIdentity)).extra("Repeat+"),
             RuleItem.create(EVar, internFinalVar(optional.groupIdentity)).extra("Optional"),
             RuleItem.create(EVar, internFinalVar(leftDkh.groupIdentity), cSeqVar, internFinalVar(rightDkh.groupIdentity)).extra("x{m}"),
+            RuleItem.create(EVar, internFinalVar(leftDkh.groupIdentity), cSeqVar, internFinalVar(comma.groupIdentity), internFinalVar(rightDkh.groupIdentity)).extra('x{m,}'),
             RuleItem.create(EVar, internFinalVar(leftDkh.groupIdentity), cSeqVar, internFinalVar(comma.groupIdentity), cSeqVar,
                 internFinalVar(rightDkh.groupIdentity)).extra("x{m,n}"),
             RuleItem.create(EVar, EVar).extra("Concat")
@@ -1803,7 +1880,7 @@
      * @returns {*}
      * @constructor
      */
-    RegexReader.gettextOfIVarNode = function (node) {
+    RegexReader.getTextOfIVarNode = function (node) {
         return node.items[0].items[0].valueToken.text; // FIXME
     };
     /**
@@ -1832,7 +1909,7 @@
             return initial;
         }
         if (node.items.size() == 1) {
-            return RegexReader.gettextOfIVarNode(node) + initial;
+            return RegexReader.getTextOfIVarNode(node) + initial;
         }
         if (node.items.size() == 2) {
             return node.items[0].items[0].valueToken.text[0] + RegexReader.getAllCharsInCharSeqNode(node.items[1], initial);
@@ -1847,7 +1924,7 @@
             return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]);
         }
         if (node.nodeVar.name === "I") {
-            if (node.items[0].valueToken.text.length > 1 && node.items[0].valueToken.text.startsWith("\\")) {
+            if (node.items[0].valueToken.text.length > 1 && node.items[0].valueToken.text.indexOf("\\") >= 0) {
                 return new CharExpr(node.items[0].valueToken.text[1]);
             }
             if (node.extraInfo === "space") {
@@ -1882,6 +1959,9 @@
         if (node.extraInfo === "x{m}") {
             return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).repeat(parseInt(RegexReader.getAllCharsInCharSeqNode(node.items[2])));
         }
+        if (node.extraInfo === 'x{m,}') {
+            return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).repeatAtLeast(parseInt(RegexReader.getAllCharsInCharSeqNode(node.items[2])));
+        }
         if (node.extraInfo === "x{m,n}") {
             return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]).repeat(parseInt(node.items[2].valueToken.text), parseInt(node.items[4].valueToken.text));
         }
@@ -1896,11 +1976,19 @@
         }
         if (node.extraInfo === "[abc]") {
             var items = RegexReader.getAllitemsInCharSeqNode(node.items[1]);
-            var expritems = [];
+            var exprItems = [];
             for (var i = 0; i < items.size(); ++i) {
-                expritems.push(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(items[i]));
+                exprItems.push(RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(items[i]));
             }
-            return RegexExpr.unionAll.apply(this, expritems);
+            return RegexExpr.unionAll.apply(this, exprItems);
+        }
+        if (node.extraInfo === '[^abc]') {
+            var toExludeItems = RegexReader.getAllitemsInCharSeqNode(node.items[2]);
+            var toExludeExprItemsStr = '';
+            for (var iToExlude = 0; iToExlude < toExludeItems.size(); ++iToExlude) {
+                toExludeExprItemsStr += RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(toExludeItems[iToExlude]);
+            }
+            return new CharNotInRangeExpr(toExludeExprItemsStr);
         }
         if (node.items.size() === 1) {
             return RegexReader.parseRegexStringSyntaxTreeNodeToRegexExpr(node.items[0]);
@@ -1925,4 +2013,242 @@
         }
         return null;
     };
+
+    function generateTokenListUsingInnerRegex(rules, text, tokenCallback) {
+        var tokens = generateTokenStreamUsingInnerRegex(rules, text);
+        if (tokenCallback) {
+            tokenCallback(tokens);
+        }
+        tokens = tokens.map(function (token) {
+            var originToken = token;
+            var token = new Token(token.value, exports.V(token.type));
+            token.offset = originToken.offset;
+            return token;
+        });
+        return TokenList.create(tokens);
+    }
+
+    exports.generateTokenListUsingInnerRegex = generateTokenListUsingInnerRegex;
+
+    // generate token string using js inner regex engine, because it's faster
+    /**
+     *
+     * @param rules [{pattern: regex-string, name: ...}, ...]
+     * @param text input string
+     */
+    function generateTokenStreamUsingInnerRegex(rules, text) {
+        var tokenExpressions = [];
+        var captureCount = 0;
+        for (var i = 0, ii = rules.length; i < ii; i++) {
+            var rule = rules[i];
+            var expression = rule.pattern;
+            // 模式中有多少个捕获分组
+            var captureGroupRe = /\\.|\[(?:\\.|[^\]])*\]|(\((?!\?[!:=]))|./g;
+            var captures = expression.replace(captureGroupRe, function (match, p) {
+                return p ? '.' : '';
+            }).length;
+            rule.captureCount = captures + 1;
+            // 匹配'\数字'这种形式,这是正则中的backreference.指向匹配子字符串(捕获分组)中第几个匹配子字符串.
+            // 因为最终构造出一个总的正则字符串,所以需要给这些backreference增加值为整体的捕获分组索引
+            var BACK_REF_EXP = /\\\D|\[(?:\\.|[^\]])*\]|\\(\d+)|./g;
+            expression = expression.replace(BACK_REF_EXP, function (match, d) {
+                if (d) {
+                    var n = parseInt(d, 10);
+                    if (n > 0 && n <= captures) {
+                        return '\\' + (n + captureCount + 1);
+                    } else {
+                        return parseInt(d + '', 8); // 如果超过了captures,就当做一个8进制数来处理
+                    }
+                } else {
+                    return match;
+                }
+            });
+            captureCount += captures + 1; // 前面的expresses中已经有多少捕获分组了.方便在重新计算backreference时可以重新计算索引
+            tokenExpressions.push(expression);
+        }
+        var _tokenRegExp =
+            new RegExp('(' + tokenExpressions.join(')|(') + ')', 'g');
+        var index = 0;
+        var tokenMatch;
+        var tokens = [];
+        while (tokenMatch = _tokenRegExp.exec(text)) {
+            index += tokenMatch[0].length;
+            var token = {
+                type: undefined, value: tokenMatch[0], match: undefined, offset: index
+            };
+            var j = 1;
+            var r = 0;
+            var rule2 = rules[r];
+            while (!tokenMatch[j]) {
+                j += rule2.captureCount;
+                rule2 = rules[++r];
+            }
+            token.type = rule2.name;
+            token.match = tokenMatch.slice(j, j + rule2.captureCount);
+            //token.match[rule.captureCount - 1] = token.match[rule.captureCount - 1]; // Expected length
+            tokens.push(token);
+            console.log(token.value, token.type, token.offset, token.match);
+        }
+        return tokens;
+    }
+
+    exports.generateTokenStreamUsingInnerRegex = generateTokenStreamUsingInnerRegex;
+    var varCache = {};
+    exports.clearVarCache = function () {
+        varCache = {};
+    };
+    exports.V = function (varName, isFinal) {
+        isFinal = isFinal || false;
+        if (varCache[varName]) {
+            return varCache[varName];
+        }
+        var v = isFinal ? new FinalVar(varName) : new Var(varName);
+        varCache[varName] = v;
+        return v;
+    };
+
+    /**
+     * 使用对用户友好的规则定义方式构造语法Parser
+     * 语法规则定义方法如下:
+     * [ rule1, rule2, rule3, ... ]
+     * rule:
+     * [ 目标Var, ruleItem1, ruleItem2, ... ]
+     * ruleItem:
+     * 正则表达式字符串 | Var实例 | [ Var实例或者正则表达式字符串, ... ] | {name: '子规则名称,非var,在最终语法分析树中会有体现,没有这项的前面2种ruleItem,name其实是目标Var的名称', rule: ruleItem}
+     *
+     * 实现方法,先把规则中所有的正则表达式抽出来放到hashmap中
+     * 对于每个正则表达式,把所有规则中匹配到的所有Var名称,用::分隔开,产生一个新的FinalVar,如归此正则表达式对应规则唯一且此Var对应的子规则也唯一,这个FinalVar规则直接替换原有
+     * 最后用每个正则表达式对于的Var替换所有规则中出现的正则表达式
+     * @param syntaxRules
+     * @return object {token_patterns: 词法规则列表, parser: Parser-instance}
+     */
+    function buildSyntaxTreeParser(finalDestVar, syntaxRules) {
+        var regexs = {};
+        var regexVarMapping = {};
+        var tokenPatterns = [];
+
+        function addRuleVarToRegexBinding(regex, ruleVar) {
+            if (!regexs[regex]) {
+                regexs[regex] = new Set();
+            }
+            regexs[regex].add(ruleVar);
+            return regexs;
+        }
+
+        function addRegexToSetFromRuleItem(ruleVar, ruleItem) {
+            if (exports.isString(ruleItem)) {
+                addRuleVarToRegexBinding(ruleItem, ruleVar);
+            } else if (isVar(ruleItem)) {
+                // do nothing
+            } else if (Array.isArray(ruleItem)) {
+                ruleItem.forEach(function (item) {
+                    addRegexToSetFromRuleItem(ruleVar, item);
+                });
+            } else {
+                addRegexToSetFromRuleItem(ruleVar, ruleItem.rule);
+            }
+        }
+
+        function findRuleItemsOfVar(ruleVarToFind) {
+            var result = [];
+            syntaxRules.forEach(function (rule) {
+                var ruleVar = rule[0];
+                var ruleItems = rule.subItems(1);
+                if (ruleVar === ruleVarToFind) {
+                    result.addAll(ruleItems);
+                }
+                ruleItems.forEach(function (ruleItem) {
+                    if (!exports.isString(ruleItem) && !Array.isArray(ruleItem)
+                        && !isVar(ruleItem) && ruleItem.name) {
+                        result.push(ruleItem);
+                    }
+                });
+            });
+            return result;
+        }
+
+        syntaxRules.forEach(function (rule) {
+            var ruleVar = rule[0];
+            var ruleItems = rule.subItems(1);
+            for (var i = 0; i < ruleItems.length; ++i) {
+                addRegexToSetFromRuleItem(ruleVar, ruleItems[i]);
+            }
+        });
+        for (var regex in regexs) {
+            var ruleVars = regexs[regex];
+            if (ruleVars.size() < 1) {
+                continue;
+            }
+            if (ruleVars.size() === 1) {
+                var singleVarOfRegex = ruleVars.get(0);
+                var ruleItemsOfSingleVar = findRuleItemsOfVar(singleVarOfRegex);
+                if (ruleItemsOfSingleVar.length < 1) {
+                    throw new Error("wrong syntax rules");
+                }
+                if (ruleItemsOfSingleVar.length === 1 && !(Array.isArray(ruleItemsOfSingleVar[0]) && ruleItemsOfSingleVar[0].length > 1)) {
+                    // var和正则表达式是一对一规则
+                    singleVarOfRegex.isFinal = true;
+                    regexVarMapping[regex] = singleVarOfRegex;
+                    continue;
+                }
+            }
+            var newFinalVarName = ruleVars.items.map(function (v) {
+                return v.name;
+            }).join('::');
+            var newFinalVarOfRegex = exports.V(newFinalVarName + "::" + regex, true);
+            regexVarMapping[regex] = newFinalVarOfRegex;
+        }
+        // 在syntaxRules,替换所有正则表达式为对应的FinalVar,并加入到parserRules中,如果碰到目标Var本身就是final的,直接去掉这个规则
+        function replaceRegexAndAddRuleItemToParserRules(ruleVarName, ruleItem) {
+            if (exports.isString(ruleItem)) {
+                return [{name: ruleVarName, rule: regexVarMapping[ruleItem]}];
+            } else if (isVar(ruleItem)) {
+                return [{name: ruleVarName, rule: ruleItem}];
+            } else if (Array.isArray(ruleItem)) {
+                return ruleItem.map(function (item) {
+                    if (isVar(item)) {
+                        return {name: ruleVarName, rule: item};
+                    } else if (exports.isString(item)) {
+                        return {name: ruleVarName, rule: regexVarMapping[item]};
+                    } else {
+                        return {name: ruleVarName, rule: item};
+                    }
+                });
+            } else {
+                return [replaceRegexAndAddRuleItemToParserRules(ruleItem.name, ruleItem)];
+            }
+        }
+
+        var parserRules = [];
+        syntaxRules.forEach(function (rule) {
+            var ruleVar = rule[0];
+            var ruleItems = rule.subItems(1);
+            if (!isFinalVar(ruleVar)) {
+                ruleItems = ruleItems.map(function (ruleItem) {
+                    return replaceRegexAndAddRuleItemToParserRules(ruleVar.name, ruleItem);
+                });
+                ruleItems = ruleItems.map(function (ruleItem) {
+                    if (ruleItem) {
+                        return RuleItem.create.apply(null, ruleItem.map(function (item) {
+                            return item.rule;
+                        })).extra(ruleItem[0].name);
+                    }
+                }).compact();
+                var parserRule = new Rule(ruleVar, ruleItems);
+                parserRules.push(parserRule);
+            }
+        });
+        var syntaxParser = new Parser(finalDestVar, parserRules, []);
+        var tokenPatterns = [];
+        for (var regex in regexVarMapping) {
+            tokenPatterns.push({name: regexVarMapping[regex].name, pattern: regex});
+        }
+        return {
+            token_patterns: tokenPatterns,
+            parser: syntaxParser
+        };
+    }
+
+    exports.buildSyntaxTreeParser = buildSyntaxTreeParser;
+
 })();
